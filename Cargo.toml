@@ -1,0 +1,24 @@
+[package]
+name = "space-ferret"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "Ferrets out where your disk space went: fast parallel disk-usage breakdown that flags safe cleanup candidates"
+license = "MIT"
+repository = "https://github.com/leealexander/space-ferret"
+readme = "README.md"
+keywords = ["disk-usage", "du", "cleanup", "cli", "storage"]
+categories = ["command-line-utilities", "filesystem"]
+
+[dependencies]
+rayon = "1.10"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
