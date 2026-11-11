@@ -1,6 +1,6 @@
 [package]
 name = "space-ferret"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.80"
 description = "Ferrets out where your disk space went: fast parallel disk-usage breakdown that flags safe cleanup candidates"

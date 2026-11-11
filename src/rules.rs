@@ -478,7 +478,9 @@ impl Rules {
         r.generic_names(appcache, &[
             "cache", "caches", "code cache", "gpucache", "shadercache", "dawncache", "grshadercache",
             "graphitedawncache", "dawngraphitecache", "dawnwebgpucache", "cachestorage", "cache_data",
-            "cacheddata", "cachedextensionvsixs", "localcache", "inetcache", "dxcache", "glcache",
+            // NOT "localcache": MSIX/Store apps get their real AppData redirected into
+            // Packages\<app>\LocalCache (logins, settings, pip --user packages...).
+            "cacheddata", "cachedextensionvsixs", "inetcache", "dxcache", "glcache",
             "d3dscache", "component_crx_cache",
         ]);
         let synccache = r.add("cloud-sync-cache", "Cloud-drive local cache", Review,
@@ -568,14 +570,16 @@ impl Rules {
         if let Some(&r) = self.children_of.get(d.parent_norm) {
             return Some(r);
         }
+        // virtualenv also drops a CACHEDIR.TAG into the envs it creates, so a
+        // pyvenv.cfg wins: it is a (regenerable) environment, not a cache.
+        if d.own.has(F_VENV) && !d.protected {
+            return Some(self.venv);
+        }
         if d.own.has(F_CACHEDIR) {
             return Some(if d.lname == "target" { self.rust_target } else { self.cachedir });
         }
         if d.protected {
             return None;
-        }
-        if d.own.has(F_VENV) {
-            return Some(self.venv);
         }
         // A stray package.json / Cargo.toml in $HOME must not turn ~/.cache or
         // ~/build into "project build output".
@@ -669,6 +673,13 @@ mod tests {
         venv.mark_file("pyvenv.cfg");
         let m = r.match_dir(&info("/x/.venv", "/x", ".venv", venv, Flags::default())).unwrap();
         assert_eq!(r.list[m].id, "python-venv");
+        // virtualenv-made envs carry CACHEDIR.TAG too; still a venv, not a "safe" cache
+        venv.mark_file("CACHEDIR.TAG");
+        let m = r.match_dir(&info("/x/env3", "/x", "env3", venv, Flags::default())).unwrap();
+        assert_eq!(r.list[m].id, "python-venv");
+        // MSIX apps keep real data in LocalCache; never a generic "safe" cache
+        let lc = info("c:/u/appdata/local/packages/app/localcache", "c:/u/appdata/local/packages/app", "localcache", Flags::default(), Flags::default());
+        assert!(r.match_dir(&lc).is_none());
         // generic cache names are ignored inside source repos
         let mut d = info("/x/src/cache", "/x/src", "cache", Flags::default(), Flags::default());
         assert!(r.match_dir(&d).is_some());
